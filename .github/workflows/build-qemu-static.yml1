@@ -1,0 +1,42 @@
+name: Build QEMU aarch64 Static
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y gcc-aarch64-linux-gnu pkg-config libglib2.0-dev libpixman-1-dev ninja-build make git
+
+      - name: Clone QEMU
+        run: |
+          git clone https://gitlab.com/qemu-project/qemu.git
+          cd qemu
+          git checkout v8.2.0   # 可选稳定版
+
+      - name: Configure QEMU for static build
+        run: |
+          cd qemu
+          export PKG_CONFIG=$(which pkg-config)
+          ./configure --target-list=aarch64-softmmu \
+            --cross-prefix=aarch64-linux-gnu- \
+            --static --disable-vnc --disable-gtk --disable-sdl --disable-vte --disable-spice --disable-curses --disable-tools --disable-docs --disable-strip
+
+      - name: Build QEMU (this may take a while)
+        run: |
+          cd qemu
+          make -j$(nproc)
+          cp aarch64-softmmu/qemu-system-aarch64 $GITHUB_WORKSPACE/
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-system-aarch64-static
+          path: qemu-system-aarch64
