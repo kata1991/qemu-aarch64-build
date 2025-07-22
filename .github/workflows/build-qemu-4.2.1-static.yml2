@@ -1,0 +1,63 @@
+name: Build QEMU 4.2.1 aarch64 Static
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            git \
+            pkg-config \
+            gcc-aarch64-linux-gnu \
+            libglib2.0-dev \
+            libpixman-1-dev \
+            ninja-build \
+            make
+
+      - name: Clone QEMU v4.2.1
+        run: |
+          git clone https://git.qemu.org/git/qemu.git
+          cd qemu
+          git fetch --tags
+          git checkout v4.2.1
+
+      - name: Configure for static aarch64-softmmu build
+        run: |
+          cd qemu
+          # 确保使用主机的 pkg-config
+          export PKG_CONFIG=/usr/bin/pkg-config
+          ./configure \
+            --target-list=aarch64-softmmu \
+            --cross-prefix=aarch64-linux-gnu- \
+            --static \
+            --disable-vnc \
+            --disable-gtk \
+            --disable-sdl \
+            --disable-vte \
+            --disable-spice \
+            --disable-curses \
+            --disable-tools \
+            --disable-docs \
+            --disable-strip
+
+      - name: Build QEMU
+        run: |
+          cd qemu
+          make -j$(nproc)
+          # 拷贝可执行文件到工作区根目录
+          cp aarch64-softmmu/qemu-system-aarch64 $GITHUB_WORKSPACE/
+
+      - name: Upload static binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-system-aarch64-v4.2.1-static
+          path: qemu-system-aarch64
